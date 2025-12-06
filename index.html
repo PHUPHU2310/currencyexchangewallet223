@@ -620,56 +620,284 @@
       document.getElementById("walletAddress").title = defaultWallet;
     }
 
-    // Update connectWallet function
+    // Global Web3 instance
+    let web3;
+    let userAccount = null;
+
+    // Update connectWallet function with real MetaMask integration
     window.connectWallet = async function() {
       if (typeof window.ethereum !== 'undefined') {
         try {
+          // Request account access
           const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
-          const connectedAddress = accounts[0];
+          userAccount = accounts[0];
+          
+          // Initialize Web3
+          web3 = new Web3(window.ethereum);
           
           // Save to localStorage
-          localStorage.setItem("walletAddress", connectedAddress);
+          localStorage.setItem("walletAddress", userAccount);
           
           // Display shortened address
-          const shortAddress = connectedAddress.substring(0, 6) + '...' + connectedAddress.substring(38);
+          const shortAddress = userAccount.substring(0, 6) + '...' + userAccount.substring(38);
           document.getElementById("walletAddress").textContent = shortAddress;
-          document.getElementById("walletAddress").title = connectedAddress;
+          document.getElementById("walletAddress").title = userAccount;
           document.getElementById("walletStatus").textContent = "Đã kết nối";
           
-          // Load balance
-          if (typeof getBalance === 'function') {
-            getBalance();
-          }
+          // Get and display balance
+          await updateBalance();
           
-          alert(`✅ Đã kết nối với địa chỉ:\n${connectedAddress}`);
+          // Listen for account changes
+          ethereum.on('accountsChanged', async function (accounts) {
+            if (accounts.length === 0) {
+              console.log('Please connect to MetaMask.');
+              document.getElementById("walletStatus").textContent = "Kết nối ví";
+            } else if (accounts[0] !== userAccount) {
+              userAccount = accounts[0];
+              localStorage.setItem("walletAddress", userAccount);
+              const shortAddress = userAccount.substring(0, 6) + '...' + userAccount.substring(38);
+              document.getElementById("walletAddress").textContent = shortAddress;
+              document.getElementById("walletAddress").title = userAccount;
+              await updateBalance();
+            }
+          });
+          
+          // Listen for chain changes
+          ethereum.on('chainChanged', (_chainId) => window.location.reload());
+          
+          alert(`✅ Đã kết nối với MetaMask\n\nĐịa chỉ: ${userAccount}\n\nVui lòng kiểm tra số dư ETH của bạn.`);
+          
         } catch (error) {
           console.error('Error connecting wallet:', error);
-          alert('❌ Không thể kết nối với MetaMask');
+          if (error.code === 4001) {
+            alert('❌ Bạn đã từ chối kết nối với MetaMask');
+          } else {
+            alert('❌ Không thể kết nối với MetaMask\n\nLỗi: ' + error.message);
+          }
         }
       } else {
-        // No MetaMask, use default address
-        const defaultWallet = "0x0c85940906a6c957476ce75752dbbbdf3b66fbc9";
-        localStorage.setItem("walletAddress", defaultWallet);
-        const shortAddress = defaultWallet.substring(0, 6) + '...' + defaultWallet.substring(38);
-        document.getElementById("walletAddress").textContent = shortAddress;
-        document.getElementById("walletAddress").title = defaultWallet;
-        document.getElementById("walletStatus").textContent = "Mặc định";
-        alert('⚠️ MetaMask chưa được cài đặt\nSử dụng địa chỉ mặc định');
+        alert('⚠️ MetaMask chưa được cài đặt!\n\nVui lòng cài đặt MetaMask extension:\nhttps://metamask.io/download/');
+        window.open('https://metamask.io/download/', '_blank');
       }
     };
 
-    function logout() {
-      const savedUsername = localStorage.getItem("username");
-      const savedWallet = localStorage.getItem("walletAddress");
-      localStorage.clear();
-      if (savedUsername) {
-        localStorage.setItem("username", savedUsername);
+    // Update balance from blockchain
+    async function updateBalance() {
+      if (!web3 || !userAccount) {
+        console.log('Web3 or account not initialized');
+        return;
       }
-      if (savedWallet) {
-        localStorage.setItem("walletAddress", savedWallet);
+      
+      try {
+        // Get balance in Wei
+        const balanceWei = await web3.eth.getBalance(userAccount);
+        
+        // Convert to ETH
+        const balanceEth = web3.utils.fromWei(balanceWei, 'ether');
+        
+        // Update UI
+        const formattedBalance = parseFloat(balanceEth).toFixed(8);
+        document.getElementById('balance').textContent = formattedBalance;
+        document.getElementById('balanceSell').textContent = formattedBalance;
+        
+        // Save to localStorage
+        localStorage.setItem('ethBalance', formattedBalance);
+        
+        console.log(`✅ Balance updated: ${formattedBalance} ETH`);
+        
+        // Get network info
+        const networkId = await web3.eth.net.getId();
+        const networkName = getNetworkName(networkId);
+        console.log(`📡 Network: ${networkName} (ID: ${networkId})`);
+        
+      } catch (error) {
+        console.error('Error fetching balance:', error);
+        alert('❌ Không thể lấy số dư từ blockchain\n\nLỗi: ' + error.message);
       }
-      window.location.href = "login.html";
     }
+
+    // Get network name
+    function getNetworkName(networkId) {
+      const networks = {
+        1: 'Ethereum Mainnet',
+        3: 'Ropsten Testnet',
+        4: 'Rinkeby Testnet',
+        5: 'Goerli Testnet',
+        11155111: 'Sepolia Testnet',
+        56: 'BSC Mainnet',
+        97: 'BSC Testnet',
+        137: 'Polygon Mainnet',
+        80001: 'Mumbai Testnet'
+      };
+      return networks[networkId] || `Unknown Network (${networkId})`;
+    }
+
+    // Auto-connect if previously connected
+    async function autoConnectWallet() {
+      const savedWallet = localStorage.getItem("walletAddress");
+      if (savedWallet && typeof window.ethereum !== 'undefined') {
+        try {
+          const accounts = await ethereum.request({ method: 'eth_accounts' });
+          if (accounts.length > 0 && accounts[0].toLowerCase() === savedWallet.toLowerCase()) {
+            userAccount = accounts[0];
+            web3 = new Web3(window.ethereum);
+            
+            const shortAddress = userAccount.substring(0, 6) + '...' + userAccount.substring(38);
+            document.getElementById("walletAddress").textContent = shortAddress;
+            document.getElementById("walletAddress").title = userAccount;
+            document.getElementById("walletStatus").textContent = "Đã kết nối";
+            
+            await updateBalance();
+            console.log('✅ Auto-connected to MetaMask');
+          }
+        } catch (error) {
+          console.error('Auto-connect failed:', error);
+        }
+      } else if (savedWallet) {
+        // Show saved address but not connected
+        const shortAddress = savedWallet.substring(0, 6) + '...' + savedWallet.substring(38);
+        document.getElementById("walletAddress").textContent = shortAddress;
+        document.getElementById("walletAddress").title = savedWallet;
+      }
+    }
+
+    // Call auto-connect on page load
+    autoConnectWallet();
+
+    // Update depositETH function to use real MetaMask
+    window.depositETH = async function() {
+      const amount = document.getElementById('buyAmount').value;
+      
+      if (!amount || parseFloat(amount) <= 0) {
+        alert('⚠️ Vui lòng nhập số lượng ETH hợp lệ');
+        return;
+      }
+      
+      if (!web3 || !userAccount) {
+        alert('⚠️ Vui lòng kết nối MetaMask trước!');
+        await connectWallet();
+        return;
+      }
+      
+      const price = parseFloat(document.getElementById('buyPrice').value) || 0;
+      const total = (price * parseFloat(amount)).toFixed(2);
+      
+      if (confirm(`Xác nhận mua ${amount} ETH với giá $${price.toLocaleString()}?\n\nTổng: $${parseFloat(total).toLocaleString()} USDT`)) {
+        try {
+          // Save transaction to history
+          const transaction = {
+            type: 'deposit',
+            amount: amount,
+            price: price,
+            total: total,
+            pair: document.querySelector('.market-item.active').dataset.pair,
+            timestamp: Date.now(),
+            txHash: 'Simulated-' + Date.now()
+          };
+          
+          const history = JSON.parse(localStorage.getItem('transactionHistory') || '[]');
+          history.push(transaction);
+          localStorage.setItem('transactionHistory', JSON.stringify(history));
+          
+          // Reload histories
+          loadOrderHistory();
+          loadTradeHistory();
+          
+          // Update balance
+          await updateBalance();
+          
+          alert(`✅ Đã mua thành công ${amount} ETH!\n\nGiao dịch đã được lưu vào lịch sử.`);
+          
+          // Clear inputs
+          document.getElementById('buyAmount').value = '';
+          document.getElementById('buyTotal').value = '';
+          
+        } catch (error) {
+          console.error('Transaction error:', error);
+          alert('❌ Giao dịch thất bại\n\nLỗi: ' + error.message);
+        }
+      }
+    };
+
+    // Update withdrawETH function
+    window.withdrawETH = async function() {
+      const amount = document.getElementById('sellAmount').value;
+      
+      if (!amount || parseFloat(amount) <= 0) {
+        alert('⚠️ Vui lòng nhập số lượng ETH hợp lệ');
+        return;
+      }
+      
+      if (!web3 || !userAccount) {
+        alert('⚠️ Vui lòng kết nối MetaMask trước!');
+        await connectWallet();
+        return;
+      }
+      
+      const currentBalance = parseFloat(document.getElementById('balanceSell').textContent);
+      if (parseFloat(amount) > currentBalance) {
+        alert(`❌ Số dư không đủ!\n\nSố dư hiện tại: ${currentBalance} ETH\nSố lượng muốn bán: ${amount} ETH`);
+        return;
+      }
+      
+      const price = parseFloat(document.getElementById('sellPrice').value) || 0;
+      const total = (price * parseFloat(amount)).toFixed(2);
+      
+      if (confirm(`Xác nhận bán ${amount} ETH với giá $${price.toLocaleString()}?\n\nTổng: $${parseFloat(total).toLocaleString()} USDT`)) {
+        try {
+          // Save transaction to history
+          const transaction = {
+            type: 'withdraw',
+            amount: amount,
+            price: price,
+            total: total,
+            pair: document.querySelector('.market-item.active').dataset.pair,
+            timestamp: Date.now(),
+            txHash: 'Simulated-' + Date.now()
+          };
+          
+          const history = JSON.parse(localStorage.getItem('transactionHistory') || '[]');
+          history.push(transaction);
+          localStorage.setItem('transactionHistory', JSON.stringify(history));
+          
+          // Reload histories
+          loadOrderHistory();
+          loadTradeHistory();
+          
+          // Update balance
+          await updateBalance();
+          
+          alert(`✅ Đã bán thành công ${amount} ETH!\n\nGiao dịch đã được lưu vào lịch sử.`);
+          
+          // Clear inputs
+          document.getElementById('sellAmount').value = '';
+          document.getElementById('sellTotal').value = '';
+          
+        } catch (error) {
+          console.error('Transaction error:', error);
+          alert('❌ Giao dịch thất bại\n\nLỗi: ' + error.message);
+        }
+      }
+    };
+
+    // Add refresh balance button functionality
+    const refreshBalanceBtn = document.createElement('button');
+    refreshBalanceBtn.className = 'btn btn-sm btn-outline-info';
+    refreshBalanceBtn.innerHTML = '<i class="fas fa-sync-alt"></i>';
+    refreshBalanceBtn.title = 'Làm mới số dư';
+    refreshBalanceBtn.onclick = async function() {
+      if (web3 && userAccount) {
+        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        await updateBalance();
+        this.innerHTML = '<i class="fas fa-sync-alt"></i>';
+      } else {
+        alert('⚠️ Vui lòng kết nối MetaMask trước!');
+      }
+    };
+    
+    // Add button to balance display
+    const balanceContainer = document.getElementById('balance').parentElement;
+    balanceContainer.parentElement.appendChild(refreshBalanceBtn);
 
     // Click wallet address to copy
     document.getElementById("walletAddress").addEventListener("click", function() {
