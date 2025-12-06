@@ -3,35 +3,246 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Đăng nhập Ví Tiết Kiệm</title>
+  <title>Đăng nhập - CryptoTrade Pro</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+  <style>
+    body {
+      background: linear-gradient(135deg, #0a0e27 0%, #1a1f2e 100%);
+      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    body::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: 
+        repeating-linear-gradient(0deg, rgba(0, 255, 65, 0.03) 0px, transparent 1px, transparent 2px, rgba(0, 255, 65, 0.03) 3px),
+        repeating-linear-gradient(90deg, rgba(0, 255, 65, 0.03) 0px, transparent 1px, transparent 2px, rgba(0, 255, 65, 0.03) 3px);
+      pointer-events: none;
+    }
+    
+    .login-card {
+      background: #0d1117;
+      border-radius: 15px;
+      box-shadow: 0 0 40px rgba(0, 255, 65, 0.3);
+      border: 1px solid #1e2139;
+      position: relative;
+      z-index: 1;
+    }
+    
+    .login-header {
+      background: linear-gradient(135deg, #0d1117 0%, #1a1f2e 100%);
+      color: #00ff41;
+      padding: 30px;
+      border-radius: 15px 15px 0 0;
+      text-align: center;
+      border-bottom: 2px solid #00ff41;
+    }
+    
+    .login-header i {
+      font-size: 48px;
+      margin-bottom: 10px;
+      text-shadow: 0 0 20px rgba(0, 255, 65, 0.8);
+      animation: glow 2s ease-in-out infinite;
+    }
+    
+    @keyframes glow {
+      0%, 100% {
+        text-shadow: 0 0 20px rgba(0, 255, 65, 0.5);
+      }
+      50% {
+        text-shadow: 0 0 30px rgba(0, 255, 65, 1);
+      }
+    }
+    
+    .login-header h3 {
+      text-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
+    }
+    
+    .form-label {
+      color: #8b949e;
+      font-weight: 600;
+    }
+    
+    .form-label i {
+      color: #00ff41;
+    }
+    
+    .form-control {
+      background-color: #161b22;
+      border: 1px solid #1e2139;
+      color: #e0e0e0;
+      padding: 12px;
+    }
+    
+    .form-control:focus {
+      background-color: #1a1f2e;
+      border-color: #00ff41;
+      box-shadow: 0 0 15px rgba(0, 255, 65, 0.3);
+      color: #e0e0e0;
+    }
+    
+    .form-control::placeholder {
+      color: #6c757d;
+    }
+    
+    .btn-login {
+      background: linear-gradient(135deg, #00ff41 0%, #00cc33 100%);
+      border: none;
+      padding: 12px;
+      font-weight: 700;
+      color: #0a0e27;
+      box-shadow: 0 0 20px rgba(0, 255, 65, 0.5);
+      transition: all 0.3s;
+    }
+    
+    .btn-login:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 5px 25px rgba(0, 255, 65, 0.7);
+      background: linear-gradient(135deg, #00cc33 0%, #009926 100%);
+    }
+    
+    #msg {
+      color: #ff0040;
+      text-shadow: 0 0 5px rgba(255, 0, 64, 0.5);
+    }
+
+    /* MD5 Hash Display */
+    #hashDisplay {
+      display: none;
+      margin-top: 10px;
+      padding: 10px;
+      background: #161b22;
+      border: 1px solid #1e2139;
+      border-radius: 8px;
+    }
+
+    #hashValue {
+      color: #00ff41;
+      font-size: 12px;
+      word-break: break-all;
+    }
+  </style>
 </head>
-<body class="bg-light d-flex justify-content-center align-items-center vh-100">
-  <div class="card p-4 shadow" style="width: 320px;">
-    <h3 class="text-center mb-3">Đăng nhập</h3>
-    <input type="text" id="email" placeholder="Email" class="form-control mb-2">
-    <input type="password" id="password" placeholder="Mật khẩu" class="form-control mb-3">
-    <button class="btn btn-primary w-100" onclick="login()">Đăng nhập</button>
-    <p id="msg" class="text-danger mt-2 text-center"></p>
+<body class="d-flex justify-content-center align-items-center vh-100">
+  <div class="login-card" style="width: 420px;">
+    <div class="login-header">
+      <i class="fas fa-chart-line"></i>
+      <h3 class="mb-0">CryptoTrade Pro</h3>
+      <p class="mb-0 small" style="color: #8b949e;">Sàn Giao Dịch Chuyên Nghiệp</p>
+    </div>
+    <div class="p-4">
+      <h5 class="text-center mb-4" style="color: #00ff41;">Đăng nhập vào tài khoản</h5>
+      <div class="mb-3">
+        <label class="form-label"><i class="fas fa-user"></i> Tên người dùng</label>
+        <input type="text" id="username" placeholder="Nhập tên của bạn" class="form-control">
+      </div>
+      <div class="mb-3">
+        <label class="form-label"><i class="fas fa-envelope"></i> Email</label>
+        <input type="text" id="email" placeholder="Nhập email của bạn" class="form-control">
+      </div>
+      <div class="mb-3">
+        <label class="form-label"><i class="fas fa-lock"></i> Mật khẩu</label>
+        <input type="password" id="password" placeholder="Nhập mật khẩu" class="form-control">
+      </div>
+      <button class="btn btn-primary btn-login w-100 mb-3" onclick="login()">
+        <i class="fas fa-sign-in-alt"></i> Đăng nhập
+      </button>
+      <p id="msg" class="text-center mb-0"></p>
+      
+      <!-- MD5 Hash Display (for testing) -->
+      <div class="mt-3 p-3" style="background: #161b22; border: 1px solid #1e2139; border-radius: 8px; display: none;" id="hashDisplay">
+        <small style="color: #8b949e;">MD5 Hash:</small>
+        <div style="color: #00ff41; font-size: 11px; word-break: break-all;" id="hashValue"></div>
+      </div>
+    </div>
   </div>
 
   <script>
+    // MD5 Hash function
+    function generateMD5(text) {
+      return CryptoJS.MD5(text).toString();
+    }
+
     function login() {
+      const username = document.getElementById("username").value.trim();
       const email = document.getElementById("email").value.trim();
       const password = document.getElementById("password").value.trim();
 
-      // ✅ Tài khoản mẫu
-      const validEmail = "phamtonga@gmail.com";
-      const validPassword = "123456";
+      // Kiểm tra tên người dùng
+      if (!username) {
+        document.getElementById("msg").innerHTML = '<i class="fas fa-exclamation-circle"></i> Vui lòng nhập tên người dùng!';
+        return;
+      }
 
-      if (email === validEmail && password === validPassword) {
+      // Kiểm tra email
+      if (!email) {
+        document.getElementById("msg").innerHTML = '<i class="fas fa-exclamation-circle"></i> Vui lòng nhập email!';
+        return;
+      }
+
+      // Kiểm tra mật khẩu
+      if (!password) {
+        document.getElementById("msg").innerHTML = '<i class="fas fa-exclamation-circle"></i> Vui lòng nhập mật khẩu!';
+        return;
+      }
+
+      // Mã hóa mật khẩu thành MD5
+      const hashedPassword = generateMD5(password);
+      
+      // Show hash for testing (optional)
+      document.getElementById("hashDisplay").style.display = "block";
+      document.getElementById("hashValue").textContent = hashedPassword;
+
+      // ✅ Tài khoản duy nhất
+      const validEmail = "tkp@gmail.com";
+      const validPasswordHash = "53d51dc5720d345c3c15c1cd4997814f"; // MD5 hash của "@@@@@@@@"
+
+      if (email === validEmail && hashedPassword === validPasswordHash) {
         localStorage.setItem("loggedIn", "true");
         localStorage.setItem("userEmail", email);
-        window.location.href = "index.html"; // sang trang ví
+        localStorage.setItem("username", username);
+        localStorage.setItem("passwordHash", hashedPassword); // Lưu hash thay vì password gốc
+        window.location.href = "index.html";
       } else {
-        document.getElementById("msg").innerText = "❌ Sai email hoặc mật khẩu!";
+        document.getElementById("msg").innerHTML = '<i class="fas fa-exclamation-circle"></i> Sai email hoặc mật khẩu!';
+        // Hide hash on error
+        setTimeout(() => {
+          document.getElementById("hashDisplay").style.display = "none";
+        }, 3000);
       }
     }
+
+    // Enter key support
+    document.getElementById("password").addEventListener("keypress", function(event) {
+      if (event.key === "Enter") {
+        login();
+      }
+    });
+
+    // Auto-fill username if exists
+    const savedUsername = localStorage.getItem("username");
+    if (savedUsername) {
+      document.getElementById("username").value = savedUsername;
+    }
+
+    // Show MD5 hash generator on double-click password field (for admin/testing)
+    document.getElementById("password").addEventListener("dblclick", function() {
+      const pass = this.value;
+      if (pass) {
+        const hash = generateMD5(pass);
+        document.getElementById("hashDisplay").style.display = "block";
+        document.getElementById("hashValue").textContent = hash;
+        console.log("MD5 Hash:", hash);
+      }
+    });
   </script>
 </body>
 </html>
